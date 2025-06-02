@@ -5,33 +5,23 @@ namespace App\Filament\Resources\WardResource\Pages;
 use App\Filament\Resources\WardResource;
 use App\Models\AuditTrail;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 
-class EditWard extends EditRecord
+class ViewWard extends ViewRecord
 {
     protected static string $resource = WardResource::class;
-
-    protected array $originalData = [];
-
-    protected function mutateFormDataBeforeFill(array $data): array
-    {
-        $this->originalData = $this->record->toArray();
-        return $data;
-    }
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\ViewAction::make()
-                ->after(function () {
-                    $this->logAuditTrail('View', 'Viewed ward: ' . $this->record->name);
-                }),
+            Actions\EditAction::make()
+                ->visible(fn () => checkWardUpdatePermission()),
 
             Actions\DeleteAction::make()
+                ->visible(fn () => checkWardDeletePermission())
                 ->before(function () {
-                    // Check for related records
                     $hasUsers = $this->record->users()->exists();
                     $hasProjects = $this->record->communityProjects()->exists() || $this->record->disasterProjects()->exists();
 
@@ -45,16 +35,13 @@ class EditWard extends EditRecord
         ];
     }
 
-    protected function afterSave(): void
+    protected function boot(): void
     {
-        $this->logAuditTrail('Update',
-            'Updated ward: ' . $this->record->name,
-            $this->originalData,
-            $this->record->fresh()->toArray()
-        );
+        parent::boot();
+        $this->logAuditTrail('View', 'Viewed ward: ' . $this->record->name);
     }
 
-    private function logAuditTrail(string $action, string $description, array $oldValues = [], array $newValues = []): void
+    private function logAuditTrail(string $action, string $description): void
     {
         try {
             AuditTrail::create([
@@ -62,8 +49,8 @@ class EditWard extends EditRecord
                 'action' => $action,
                 'table_name' => 'wards',
                 'record_id' => $this->record->id,
-                'old_values' => !empty($oldValues) ? json_encode($oldValues) : null,
-                'new_values' => !empty($newValues) ? json_encode($newValues) : null,
+                'old_values' => null,
+                'new_values' => null,
                 'description' => $description,
                 'ip_address' => Request::ip(),
                 'user_agent' => Request::userAgent(),

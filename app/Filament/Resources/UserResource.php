@@ -6,604 +6,42 @@ use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Ward;
-use App\Models\Permission;
+use App\Models\AuditTrail;
 use App\Services\SmsService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
-use Filament\Support\Enums\FontWeight;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Notifications\Notification;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
+use Filament\Forms\Components\Tabs;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
+
+    protected static ?string $navigationLabel = 'Users';
+
+    protected static ?string $modelLabel = 'User';
+
+    protected static ?string $pluralModelLabel = 'Users';
+
     protected static ?string $navigationGroup = 'User Management';
-    protected static ?string $recordTitleAttribute = 'name';
+
     protected static ?int $navigationSort = 1;
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::where('is_active', true)->count();
-    }
-
-    public static function getNavigationBadgeColor(): string|array|null
-    {
-        return 'success';
-    }
 
     public static function shouldRegisterNavigation(): bool
     {
-        // Use the global permission function from PermissionHelper.php
         return checkUserReadPermission();
-    }
-
-    public static function form(Form $form): Form
-    {
-        return $form->schema([
-            Grid::make(['default' => 1, 'lg' => 3])->schema([
-
-                // Main User Information Section
-                Section::make('User Profile')
-                    ->description('Enter user\'s basic information and profile details.')
-                    ->icon('heroicon-o-user-circle')
-                    ->schema([
-                        Grid::make(2)->schema([
-                            Forms\Components\FileUpload::make('image')
-                                ->label('Profile Photo')
-                                ->image()
-                                ->imageEditor()
-                                ->directory('user-photos')
-                                ->visibility('public')
-                                ->columnSpanFull()
-                                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/gif'])
-                                ->maxSize(2048)
-                                ->helperText('Upload a profile photo (max 2MB). JPEG, PNG, or GIF formats only.'),
-
-                            Forms\Components\TextInput::make('name')
-                                ->required()
-                                ->maxLength(255)
-                                ->label('Full Name')
-                                ->placeholder('Enter full name')
-                                ->autocomplete('name'),
-
-                            Forms\Components\TextInput::make('email')
-                                ->email()
-                                ->required()
-                                ->unique(ignoreRecord: true)
-                                ->maxLength(255)
-                                ->placeholder('user@example.com')
-                                ->autocomplete('email'),
-
-                            Forms\Components\TextInput::make('phone')
-                                ->tel()
-                                ->label('Phone Number')
-                                ->placeholder('260971234567')
-                                ->maxLength(20)
-                                ->helperText('Phone number for SMS notifications')
-                                ->rule('regex:/^[0-9+\-\s\(\)]+$/'),
-                        ]),
-                    ])->columnSpan(2),
-
-                // Account Settings Section
-                Section::make('Account Settings')
-                    ->description('Configure user\'s role, permissions, and account status.')
-                    ->icon('heroicon-o-cog-6-tooth')
-                    ->schema([
-                        Forms\Components\Select::make('role_id')
-                            ->relationship('role', 'name', function ($query) {
-                                // Only Super Admin can create other Super Admins
-                                if (auth()->user() && auth()->user()->role_id !== 1) {
-                                    return $query->where('name', '!=', 'Super Admin');
-                                }
-                                return $query->where('is_deleted', false);
-                            })
-                            ->required()
-                            ->preload()
-                            ->searchable()
-                            ->label('User Role')
-                            ->helperText('Select the user\'s role in the CDF system')
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                // Auto-select appropriate ward for role-based users
-                                $role = Role::find($state);
-                                if ($role && in_array($role->name, ['WDC', 'CDFC', 'Applicant'])) {
-                                    // Keep ward selection available for these roles
-                                } else {
-                                    $set('ward_id', null);
-                                }
-                            }),
-
-                        Forms\Components\Select::make('ward_id')
-                            ->relationship('ward', 'name')
-                            ->preload()
-                            ->searchable()
-                            ->label('Assigned Ward')
-                            ->helperText('Select ward for WDC, CDFC, or Applicant roles')
-                            ->visible(function (Forms\Get $get) {
-                                $roleId = $get('role_id');
-                                if (!$roleId) return false;
-                                $role = Role::find($roleId);
-                                return $role && in_array($role->name, ['WDC', 'CDFC', 'Applicant']);
-                            }),
-
-                        Forms\Components\TextInput::make('password')
-                            ->password()
-                            ->dehydrateStateUsing(fn ($state) => $state ? Hash::make($state) : null)
-                            ->dehydrated(fn ($state) => filled($state))
-                            ->required(fn ($livewire) => $livewire instanceof Pages\CreateUser)
-                            ->maxLength(255)
-                            ->label('Password')
-                            ->helperText('Leave blank to keep current password')
-                            ->autocomplete('new-password'),
-
-                        Forms\Components\Toggle::make('is_active')
-                            ->label('Active Status')
-                            ->helperText('Inactive users cannot log in to the system')
-                            ->default(true)
-                            ->disabled(function ($record) {
-                                // Prevent disabling Super Admin accounts unless user is also Super Admin
-                                return $record && $record->role_id === 1 && auth()->user()->role_id !== 1;
-                            }),
-
-                        Forms\Components\DateTimePicker::make('email_verified_at')
-                            ->label('Email Verified At')
-                            ->helperText('When the user verified their email address')
-                            ->visible(fn ($record) => $record !== null),
-                    ])->columnSpan(1),
-            ]),
-
-            // Additional Information Section (for existing users)
-            Section::make('User Statistics')
-                ->description('User activity and statistics in the CDF system.')
-                ->icon('heroicon-o-chart-bar')
-                ->schema([
-                    Grid::make(4)->schema([
-                        Forms\Components\Placeholder::make('projects_count')
-                            ->label('Projects Submitted')
-                            ->content(function ($record) {
-                                if (!$record) return '0';
-                                return $record->communityProjects()->count() + $record->disasterProjects()->count();
-                            }),
-
-                        Forms\Components\Placeholder::make('approved_projects')
-                            ->label('Approved Projects')
-                            ->content(function ($record) {
-                                if (!$record) return '0';
-                                $community = $record->communityProjects()->where('status', 'cdfc_approved')->count();
-                                $disaster = $record->disasterProjects()->where('status', 'cdfc_approved')->count();
-                                return $community + $disaster;
-                            }),
-
-                        Forms\Components\Placeholder::make('grants_received')
-                            ->label('Grants Received')
-                            ->content(function ($record) {
-                                if (!$record) return '0';
-                                return $record->empowermentGrants()->count();
-                            }),
-
-                        Forms\Components\Placeholder::make('last_login')
-                            ->label('Last Login')
-                            ->content(function ($record) {
-                                if (!$record || !$record->updated_at) return 'Never';
-                                return $record->updated_at->diffForHumans();
-                            }),
-                    ]),
-                ])
-                ->visible(fn ($record) => $record !== null)
-                ->collapsible(),
-        ]);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                Tables\Columns\ImageColumn::make('image')
-                    ->circular()
-                    ->defaultImageUrl(fn ($record) =>
-                        'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=7F9CF5&background=EBF4FF'
-                    )
-                    ->size(40),
-
-                Tables\Columns\TextColumn::make('name')
-                    ->weight(FontWeight::Bold)
-                    ->searchable()
-                    ->sortable()
-                    ->description(fn ($record) => $record->email),
-
-                Tables\Columns\TextColumn::make('role.name')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Super Admin' => 'danger',
-                        'Admin' => 'warning',
-                        'WDC' => 'info',
-                        'CDFC' => 'success',
-                        'Officer' => 'primary',
-                        'Applicant' => 'gray',
-                        default => 'gray',
-                    })
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('ward.name')
-                    ->badge()
-                    ->color('secondary')
-                    ->sortable()
-                    ->placeholder('No ward assigned')
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('phone')
-                    ->searchable()
-                    ->copyable()
-                    ->copyMessage('Phone number copied!')
-                    ->toggleable()
-                    ->placeholder('No phone'),
-
-                Tables\Columns\IconColumn::make('is_active')
-                    ->label('Status')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger'),
-
-                Tables\Columns\IconColumn::make('email_verified_at')
-                    ->label('Verified')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-shield-check')
-                    ->falseIcon('heroicon-o-shield-exclamation')
-                    ->trueColor('success')
-                    ->falseColor('warning')
-                    ->getStateUsing(fn ($record) => !is_null($record->email_verified_at))
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('projects_count')
-                    ->label('Projects')
-                    ->getStateUsing(function ($record) {
-                        return $record->communityProjects()->count() + $record->disasterProjects()->count();
-                    })
-                    ->badge()
-                    ->color('info')
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                SelectFilter::make('role')
-                    ->relationship('role', 'name')
-                    ->multiple()
-                    ->preload(),
-
-                SelectFilter::make('ward')
-                    ->relationship('ward', 'name')
-                    ->multiple()
-                    ->preload(),
-
-                Filter::make('created_at')
-                    ->form([
-                        Forms\Components\DatePicker::make('created_from')
-                            ->label('Created from'),
-                        Forms\Components\DatePicker::make('created_until')
-                            ->label('Created until'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['created_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
-                            )
-                            ->when(
-                                $data['created_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
-                            );
-                    })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['created_from'] ?? null) {
-                            $indicators['created_from'] = 'Created from ' . Carbon::parse($data['created_from'])->toFormattedDateString();
-                        }
-                        if ($data['created_until'] ?? null) {
-                            $indicators['created_until'] = 'Created until ' . Carbon::parse($data['created_until'])->toFormattedDateString();
-                        }
-                        return $indicators;
-                    }),
-
-                Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Active Status')
-                    ->boolean()
-                    ->trueLabel('Active Users')
-                    ->falseLabel('Inactive Users')
-                    ->native(false),
-
-                Tables\Filters\TernaryFilter::make('email_verified_at')
-                    ->label('Email Verified')
-                    ->nullable()
-                    ->trueLabel('Verified')
-                    ->falseLabel('Unverified')
-                    ->queries(
-                        true: fn (Builder $query) => $query->whereNotNull('email_verified_at'),
-                        false: fn (Builder $query) => $query->whereNull('email_verified_at'),
-                    ),
-            ])
-            ->actions([
-                Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make()
-                        ->color('info'),
-
-                    Tables\Actions\EditAction::make()
-                        ->color('warning')
-                        ->visible(function ($record) {
-                            return checkUserUpdatePermission() && (
-                                auth()->user()->role_id === 1 || // Super Admin
-                                auth()->id() === $record->id || // Own profile
-                                ($record->role_id !== 1 && auth()->user()->role_id <= 2) // Not editing Super Admin
-                            );
-                        }),
-
-                    Tables\Actions\Action::make('send_sms')
-                        ->label('Send SMS')
-                        ->icon('heroicon-o-chat-bubble-left-right')
-                        ->color('info')
-                        ->visible(fn ($record) => $record->phone && checkSmsNotificationCreatePermission())
-                        ->form([
-                            Forms\Components\Textarea::make('message')
-                                ->label('Message')
-                                ->required()
-                                ->maxLength(160)
-                                ->rows(3)
-                                ->hint('Max 160 characters')
-                                ->placeholder('Enter your message...'),
-                        ])
-                        ->action(function (array $data, $record) {
-                            $smsService = new SmsService();
-                            $result = $smsService->sendSingleSms(
-                                $record->phone,
-                                $data['message'],
-                                $record->id
-                            );
-
-                            if ($result['success']) {
-                                Notification::make()
-                                    ->title('SMS Sent Successfully')
-                                    ->body("Message sent to {$record->name}")
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title('SMS Failed')
-                                    ->body($result['message'])
-                                    ->danger()
-                                    ->send();
-                            }
-                        }),
-
-                    Tables\Actions\Action::make('toggle_status')
-                        ->label(fn ($record) => $record->is_active ? 'Deactivate' : 'Activate')
-                        ->icon(fn ($record) => $record->is_active ? 'heroicon-o-x-circle' : 'heroicon-o-check-circle')
-                        ->color(fn ($record) => $record->is_active ? 'danger' : 'success')
-                        ->visible(function ($record) {
-                            return checkUserUpdatePermission() &&
-                                   auth()->id() !== $record->id && // Can't deactivate own account
-                                   ($record->role_id !== 1 || auth()->user()->role_id === 1); // Super Admin protection
-                        })
-                        ->requiresConfirmation()
-                        ->action(function ($record) {
-                            $record->update(['is_active' => !$record->is_active]);
-
-                            Notification::make()
-                                ->title('User Status Updated')
-                                ->body("User {$record->name} has been " . ($record->is_active ? 'activated' : 'deactivated'))
-                                ->success()
-                                ->send();
-                        }),
-
-                    Tables\Actions\Action::make('reset_password')
-                        ->label('Reset Password')
-                        ->icon('heroicon-o-key')
-                        ->color('warning')
-                        ->visible(fn () => checkUserUpdatePermission())
-                        ->requiresConfirmation()
-                        ->action(function ($record) {
-                            $newPassword = 'password123'; // In production, generate random password
-                            $record->update(['password' => Hash::make($newPassword)]);
-
-                            // Send SMS if phone available
-                            if ($record->phone && checkSmsNotificationCreatePermission()) {
-                                $smsService = new SmsService();
-                                $smsService->sendSingleSms(
-                                    $record->phone,
-                                    "Your CDF account password has been reset. New password: {$newPassword}",
-                                    $record->id
-                                );
-                            }
-
-                            Notification::make()
-                                ->title('Password Reset')
-                                ->body("Password reset for {$record->name}. New password: {$newPassword}")
-                                ->warning()
-                                ->persistent()
-                                ->send();
-                        }),
-
-                    Tables\Actions\DeleteAction::make()
-                        ->visible(function ($record) {
-                            return checkUserDeletePermission() && (
-                                auth()->user()->role_id === 1 || // Super Admin can delete anyone
-                                (auth()->user()->role_id === 2 && $record->role_id > 2) // Admin can delete non-admin users
-                            ) && auth()->id() !== $record->id; // Can't delete own account
-                        }),
-                ])
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\BulkAction::make('activate')
-                        ->label('Activate Selected')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->visible(fn () => checkUserUpdatePermission())
-                        ->action(function ($records) {
-                            $records->each->update(['is_active' => true]);
-
-                            Notification::make()
-                                ->title('Users Activated')
-                                ->body(count($records) . ' users have been activated')
-                                ->success()
-                                ->send();
-                        }),
-
-                    Tables\Actions\BulkAction::make('deactivate')
-                        ->label('Deactivate Selected')
-                        ->icon('heroicon-o-x-circle')
-                        ->color('danger')
-                        ->visible(fn () => checkUserUpdatePermission())
-                        ->requiresConfirmation()
-                        ->action(function ($records) {
-                            // Exclude current user from deactivation
-                            $records = $records->filter(fn ($record) => $record->id !== auth()->id());
-                            $records->each->update(['is_active' => false]);
-
-                            Notification::make()
-                                ->title('Users Deactivated')
-                                ->body(count($records) . ' users have been deactivated')
-                                ->warning()
-                                ->send();
-                        }),
-
-                    Tables\Actions\BulkAction::make('send_bulk_sms')
-                        ->label('Send SMS to Selected')
-                        ->icon('heroicon-o-chat-bubble-left-right')
-                        ->color('info')
-                        ->visible(fn () => checkSmsNotificationCreatePermission())
-                        ->form([
-                            Forms\Components\Textarea::make('message')
-                                ->label('Message')
-                                ->required()
-                                ->maxLength(160)
-                                ->rows(3)
-                                ->hint('Max 160 characters'),
-                        ])
-                        ->action(function (array $data, $records) {
-                            $recipients = [];
-                            foreach ($records as $record) {
-                                if ($record->phone) {
-                                    $recipients[] = [
-                                        'phone' => $record->phone,
-                                        'message' => $data['message'],
-                                        'user_id' => $record->id,
-                                    ];
-                                }
-                            }
-
-                            if (empty($recipients)) {
-                                Notification::make()
-                                    ->title('No Phone Numbers')
-                                    ->body('None of the selected users have phone numbers')
-                                    ->warning()
-                                    ->send();
-                                return;
-                            }
-
-                            $smsService = new SmsService();
-                            $result = $smsService->sendBulkSms($recipients, 'bulk');
-
-                            if ($result['success']) {
-                                Notification::make()
-                                    ->title('Bulk SMS Sent')
-                                    ->body("SMS sent to {$result['count']} users")
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title('Bulk SMS Failed')
-                                    ->body($result['message'])
-                                    ->danger()
-                                    ->send();
-                            }
-                        }),
-
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn () => checkUserDeletePermission()),
-                ]),
-            ])
-            ->defaultSort('created_at', 'desc')
-            ->poll('30s') // Auto-refresh every 30 seconds
-            ->persistSortInSession()
-            ->persistSearchInSession()
-            ->persistFiltersInSession();
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            // Add relations if needed
-        ];
-    }
-
-    public static function getPages(): array
-    {
-        return [
-            'index' => Pages\ListUsers::route('/'),
-            'create' => Pages\CreateUser::route('/create'),
-            'edit' => Pages\EditUser::route('/{record}/edit'),
-            //'view' => Pages\ViewUser::route('/{record}'),
-        ];
-    }
-
-    // Modify what users can view based on role
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        // Super Admin can see all users
-        if (auth()->user()->role_id === 1) {
-            return $query;
-        }
-
-        // Admin can see all except Super Admin
-        if (auth()->user()->role_id === 2) {
-            return $query->whereHas('role', function ($q) {
-                $q->where('name', '!=', 'Super Admin');
-            });
-        }
-
-        // WDC/CDFC can see users in their ward + applicants
-        if (auth()->user()->isWDC() || auth()->user()->isCDFC()) {
-            return $query->where(function ($q) {
-                $q->where('ward_id', auth()->user()->ward_id)
-                  ->orWhereHas('role', function ($roleQuery) {
-                      $roleQuery->where('name', 'Applicant');
-                  });
-            });
-        }
-
-        // Officers can see applicants and other officers
-        if (auth()->user()->role?->name === 'Officer') {
-            return $query->whereHas('role', function ($q) {
-                $q->whereIn('name', ['Officer', 'Applicant']);
-            });
-        }
-
-        // Applicants can only see themselves
-        return $query->where('id', auth()->id());
     }
 
     public static function canCreate(): bool
@@ -613,18 +51,738 @@ class UserResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return checkUserUpdatePermission() && (
-            auth()->user()->role_id === 1 || // Super Admin
-            auth()->id() === $record->id || // Own profile
-            ($record->role_id !== 1 && auth()->user()->role_id <= 2) // Not editing Super Admin
-        );
+        // Super Admin protection - only Super Admin can edit Super Admin accounts
+        if ($record->role?->name === 'Super Admin') {
+            return Auth::user()?->role?->name === 'Super Admin';
+        }
+        return checkUserUpdatePermission();
     }
 
     public static function canDelete($record): bool
     {
-        return checkUserDeletePermission() &&
-               auth()->id() !== $record->id && // Can't delete own account
-               (auth()->user()->role_id === 1 || // Super Admin can delete anyone
-                (auth()->user()->role_id === 2 && $record->role_id > 2)); // Admin can delete non-admin users
+        // Super Admin protection - cannot delete Super Admin accounts
+        if ($record->role?->name === 'Super Admin') {
+            return false;
+        }
+        // Cannot delete self
+        if ($record->id === Auth::id()) {
+            return false;
+        }
+        return checkUserDeletePermission();
+    }
+
+    public static function canView($record): bool
+    {
+        return checkUserReadPermission();
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Tabs::make('User Information')
+                    ->tabs([
+                        Tabs\Tab::make('Basic Information')
+                            ->schema([
+                                Section::make('Personal Details')
+                                    ->schema([
+                                        Grid::make(2)
+                                            ->schema([
+                                                Forms\Components\TextInput::make('name')
+                                                    ->label('Full Name')
+                                                    ->required()
+                                                    ->maxLength(255)
+                                                    ->placeholder('John Doe')
+                                                    ->rules(['min:2', 'max:255'])
+                                                    ->validationMessages([
+                                                        'min' => 'Name must be at least 2 characters long',
+                                                        'max' => 'Name cannot exceed 255 characters',
+                                                    ]),
+
+                                                Forms\Components\TextInput::make('email')
+                                                    ->label('Email Address')
+                                                    ->email()
+                                                    ->required()
+                                                    ->unique(ignoreRecord: true)
+                                                    ->maxLength(255)
+                                                    ->placeholder('john@example.com')
+                                                    ->rules(['email'])
+                                                    ->validationMessages([
+                                                        'email' => 'Please enter a valid email address',
+                                                        'unique' => 'This email address is already registered',
+                                                    ]),
+                                            ]),
+
+                                        Grid::make(2)
+                                            ->schema([
+                                                Forms\Components\TextInput::make('phone')
+                                                    ->label('Phone Number')
+                                                    ->tel()
+                                                    ->maxLength(20)
+                                                    ->placeholder('+260 977 123456')
+                                                    ->helperText('Contact phone number (international format preferred)')
+                                                    ->rules(['regex:/^[\+]?[0-9\s\-\(\)]{10,20}$/'])
+                                                    ->validationMessages([
+                                                        'regex' => 'Please enter a valid phone number (10-20 digits)',
+                                                    ])
+                                                    ->live(onBlur: true)
+                                                    ->afterStateUpdated(function (string $state, Forms\Set $set) {
+                                                        // Clean and format phone number
+                                                        $cleaned = preg_replace('/[^0-9\+]/', '', $state);
+                                                        if (strlen($cleaned) > 20) {
+                                                            $cleaned = substr($cleaned, 0, 20);
+                                                        }
+                                                        $set('phone', $cleaned);
+                                                    }),
+
+                                                Forms\Components\FileUpload::make('image')
+                                                    ->label('Profile Image')
+                                                    ->image()
+                                                    ->imageEditor()
+                                                    ->imageEditorAspectRatios([
+                                                        '1:1',
+                                                    ])
+                                                    ->directory('profile-images')
+                                                    ->disk('public')
+                                                    ->visibility('public')
+                                                    ->maxSize(2048)
+                                                    ->helperText('Upload a profile image (max 2MB)'),
+                                            ]),
+                                    ])
+                                    ->columns(1),
+
+                                Section::make('System Access')
+                                    ->schema([
+                                        Grid::make(2)
+                                            ->schema([
+                                                Forms\Components\Select::make('role_id')
+                                                    ->label('User Role')
+                                                    ->relationship('role', 'name')
+                                                    ->required()
+                                                    ->searchable()
+                                                    ->preload()
+                                                    ->live()
+                                                    ->options(function () {
+                                                        $user = Auth::user();
+                                                        $query = Role::query();
+
+                                                        // Only Super Admin can assign Super Admin role
+                                                        if ($user?->role?->name !== 'Super Admin') {
+                                                            $query->where('name', '!=', 'Super Admin');
+                                                        }
+
+                                                        return $query->pluck('name', 'id');
+                                                    })
+                                                    ->helperText('Select the appropriate role for this user'),
+
+                                                Forms\Components\Select::make('ward_id')
+                                                    ->label('Ward Assignment')
+                                                    ->relationship('ward', 'name')
+                                                    ->searchable()
+                                                    ->preload()
+                                                    ->helperText('Assign user to a specific ward (optional)')
+                                                    ->visible(function (Forms\Get $get) {
+                                                        $roleId = $get('role_id');
+                                                        if ($roleId) {
+                                                            $role = Role::find($roleId);
+                                                            return in_array($role?->name, [
+                                                                'Ward Development Committee',
+                                                                'Constituency Officer',
+                                                                'Applicant'
+                                                            ]);
+                                                        }
+                                                        return true;
+                                                    }),
+                                            ]),
+
+                                        Forms\Components\Toggle::make('is_active')
+                                            ->label('Account Active')
+                                            ->default(true)
+                                            ->helperText('Inactive users cannot login to the system')
+                                            ->visible(function () {
+                                                // Only allow role changes for appropriate users
+                                                return Auth::user()?->role?->name === 'Super Admin' ||
+                                                       Auth::user()?->role?->name === 'Admin';
+                                            }),
+                                    ])
+                                    ->columns(2)
+                                    ->collapsible(),
+                            ]),
+
+                        Tabs\Tab::make('Security')
+                            ->schema([
+                                Section::make('Password Management')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('password')
+                                            ->label('Password')
+                                            ->password()
+                                            ->revealable()
+                                            ->maxLength(255)
+                                            ->dehydrateStateUsing(fn ($state) => filled($state) ? Hash::make($state) : null)
+                                            ->dehydrated(fn ($state) => filled($state))
+                                            ->required(fn (string $context): bool => $context === 'create')
+                                            ->rules(['min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'])
+                                            ->validationMessages([
+                                                'min' => 'Password must be at least 8 characters long',
+                                                'regex' => 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+                                            ])
+                                            ->helperText('Leave blank to keep current password (when editing)'),
+
+                                        Forms\Components\TextInput::make('password_confirmation')
+                                            ->label('Confirm Password')
+                                            ->password()
+                                            ->revealable()
+                                            ->maxLength(255)
+                                            ->dehydrated(false)
+                                            ->required(fn (string $context): bool => $context === 'create')
+                                            ->same('password')
+                                            ->validationMessages([
+                                                'same' => 'Password confirmation must match the password',
+                                            ]),
+                                    ])
+                                    ->columns(1),
+
+                                Section::make('Account Security')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('last_login')
+                                            ->label('Last Login')
+                                            ->content(fn ($record) => $record?->last_login_at ?
+                                                $record->last_login_at->format('M j, Y g:i A') : 'Never logged in'),
+
+                                        Forms\Components\Placeholder::make('created_info')
+                                            ->label('Account Created')
+                                            ->content(fn ($record) => $record?->created_at ?
+                                                $record->created_at->format('M j, Y g:i A') : 'Just now'),
+
+                                        Forms\Components\Placeholder::make('email_verified')
+                                            ->label('Email Verified')
+                                            ->content(fn ($record) => $record?->email_verified_at ?
+                                                'Verified on ' . $record->email_verified_at->format('M j, Y') : 'Not verified'),
+                                    ])
+                                    ->columns(1)
+                                    ->hidden(fn (string $context): bool => $context === 'create'),
+                            ]),
+
+                        Tabs\Tab::make('Activity & Permissions')
+                            ->schema([
+                                Section::make('User Activity')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('projects_count')
+                                            ->label('Community Projects')
+                                            ->content(fn ($record) => $record ?
+                                                $record->communityProjects()->count() . ' projects' : '0 projects'),
+
+                                        Forms\Components\Placeholder::make('disaster_projects_count')
+                                            ->label('Disaster Projects')
+                                            ->content(fn ($record) => $record ?
+                                                $record->disasterProjects()->count() . ' projects' : '0 projects'),
+
+                                        Forms\Components\Placeholder::make('grants_count')
+                                            ->label('Empowerment Grants')
+                                            ->content(fn ($record) => $record ?
+                                                $record->empowermentGrants()->count() . ' grants' : '0 grants'),
+
+                                        Forms\Components\Placeholder::make('reports_count')
+                                            ->label('Monitoring Reports')
+                                            ->content(fn ($record) => $record ?
+                                                $record->monitoringReports()->count() . ' reports' : '0 reports'),
+                                    ])
+                                    ->columns(2)
+                                    ->hidden(fn (string $context): bool => $context === 'create'),
+
+                                Section::make('Role Permissions')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('role_permissions')
+                                            ->label('Current Permissions')
+                                            ->content(function ($record) {
+                                                if (!$record || !$record->role) {
+                                                    return 'No role assigned';
+                                                }
+
+                                                $permissions = \App\Models\Permission::where('role_id', $record->role_id)->get();
+                                                if ($permissions->isEmpty()) {
+                                                    return 'No specific permissions set';
+                                                }
+
+                                                $permissionText = $permissions->groupBy('module')->map(function ($modulePerms, $module) {
+                                                    $actions = [];
+                                                    foreach ($modulePerms as $perm) {
+                                                        if ($perm->create) $actions[] = 'Create';
+                                                        if ($perm->read) $actions[] = 'Read';
+                                                        if ($perm->update) $actions[] = 'Update';
+                                                        if ($perm->delete) $actions[] = 'Delete';
+                                                    }
+                                                    return $module . ': ' . implode(', ', array_unique($actions));
+                                                })->implode('<br>');
+
+                                                return new \Illuminate\Support\HtmlString($permissionText);
+                                            }),
+                                    ])
+                                    ->columns(1)
+                                    ->hidden(fn (string $context): bool => $context === 'create'),
+                            ]),
+                    ])
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('Photo')
+                    ->circular()
+                    ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=7F9CF5&background=EBF4FF')
+                    ->size(40),
+
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Full Name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold')
+                    ->copyable(),
+
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->icon('heroicon-o-envelope'),
+
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Phone')
+                    ->searchable()
+                    ->copyable()
+                    ->icon('heroicon-o-phone')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('role.name')
+                    ->label('Role')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Super Admin' => 'danger',
+                        'Admin' => 'warning',
+                        'CDFC Member' => 'success',
+                        'Ward Development Committee' => 'info',
+                        'Constituency Officer' => 'primary',
+                        'Applicant' => 'gray',
+                        default => 'secondary',
+                    })
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('ward.name')
+                    ->label('Ward')
+                    ->badge()
+                    ->color('primary')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Status')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('email_verified_at')
+                    ->label('Email Verified')
+                    ->badge()
+                    ->color(fn ($state) => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn ($state) => $state ? 'Verified' : 'Unverified')
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('community_projects_count')
+                    ->label('Projects')
+                    ->counts('communityProjects')
+                    ->badge()
+                    ->color('info')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Registered')
+                    ->dateTime('M j, Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Last Updated')
+                    ->dateTime('M j, Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('role')
+                    ->relationship('role', 'name')
+                    ->multiple()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('ward')
+                    ->relationship('ward', 'name')
+                    ->multiple()
+                    ->preload(),
+
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Account Status')
+                    ->boolean()
+                    ->trueLabel('Active Users')
+                    ->falseLabel('Inactive Users')
+                    ->native(false),
+
+                Tables\Filters\TernaryFilter::make('email_verified_at')
+                    ->label('Email Verification')
+                    ->nullable()
+                    ->trueLabel('Verified Email')
+                    ->falseLabel('Unverified Email')
+                    ->native(false),
+
+                Tables\Filters\Filter::make('recent_users')
+                    ->label('Recent Users (30 days)')
+                    ->query(fn (Builder $query): Builder =>
+                        $query->where('created_at', '>=', now()->subDays(30))
+                    ),
+
+                Tables\Filters\Filter::make('has_projects')
+                    ->label('Users with Projects')
+                    ->query(fn (Builder $query): Builder =>
+                        $query->has('communityProjects')
+                    ),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->visible(fn ($record) => checkUserReadPermission())
+                    ->after(function ($record) {
+                        self::logActivity('View', $record, 'Viewed user profile: ' . $record->name);
+                    }),
+
+                Tables\Actions\EditAction::make()
+                    ->visible(fn ($record) =>
+                        checkUserUpdatePermission() &&
+                        ($record->role?->name !== 'Super Admin' || Auth::user()?->role?->name === 'Super Admin')
+                    )
+                    ->mutateFormDataUsing(function (array $data, $record): array {
+                        self::logActivity('Update', $record,
+                            'Updated user profile: ' . $record->name,
+                            $record->toArray(),
+                            $data
+                        );
+                        return $data;
+                    }),
+
+                Tables\Actions\Action::make('toggle_status')
+                    ->label(fn ($record) => $record->is_active ? 'Deactivate' : 'Activate')
+                    ->icon(fn ($record) => $record->is_active ? 'heroicon-o-x-circle' : 'heroicon-o-check-circle')
+                    ->color(fn ($record) => $record->is_active ? 'danger' : 'success')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn ($record) => ($record->is_active ? 'Deactivate' : 'Activate') . ' User Account')
+                    ->modalDescription(fn ($record) =>
+                        $record->is_active
+                            ? 'This will prevent the user from logging into the system.'
+                            : 'This will allow the user to login to the system.'
+                    )
+                    ->action(function ($record) {
+                        $oldStatus = $record->is_active;
+                        $record->update(['is_active' => !$record->is_active]);
+
+                        $action = $record->is_active ? 'Activated' : 'Deactivated';
+                        self::logActivity('Status Change', $record,
+                            $action . ' user account: ' . $record->name,
+                            ['is_active' => $oldStatus],
+                            ['is_active' => $record->is_active]
+                        );
+
+                        Notification::make()
+                            ->title('User ' . $action)
+                            ->body($record->name . ' has been ' . strtolower($action))
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn ($record) =>
+                        checkUserUpdatePermission() &&
+                        $record->id !== Auth::id() &&
+                        ($record->role?->name !== 'Super Admin' || Auth::user()?->role?->name === 'Super Admin')
+                    ),
+
+                Tables\Actions\Action::make('send_welcome_sms')
+                    ->label('Send Welcome SMS')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\Textarea::make('message')
+                            ->label('Welcome Message')
+                            ->required()
+                            ->default('Welcome to the CDF Management System! Your account has been created successfully. Please contact us if you need assistance.')
+                            ->rows(3),
+                    ])
+                    ->action(function ($record, array $data) {
+                        if ($record->phone) {
+                            $smsService = new SmsService();
+                            $message = "CDF SYSTEM: Welcome {$record->name}! " . $data['message'];
+                            $result = $smsService->sendSms($record->phone, $message);
+
+                            if ($result['success']) {
+                                self::logActivity('SMS Sent', $record,
+                                    'Sent welcome SMS to user: ' . $record->name
+                                );
+
+                                Notification::make()
+                                    ->title('SMS Sent')
+                                    ->body('Welcome SMS sent to ' . $record->name)
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('SMS Failed')
+                                    ->body('Failed to send SMS: ' . $result['message'])
+                                    ->danger()
+                                    ->send();
+                            }
+                        } else {
+                            Notification::make()
+                                ->title('No Phone Number')
+                                ->body('User does not have a phone number set')
+                                ->warning()
+                                ->send();
+                        }
+                    })
+                    ->visible(fn ($record) => checkUserUpdatePermission()),
+
+                Tables\Actions\Action::make('reset_password')
+                    ->label('Reset Password')
+                    ->icon('heroicon-o-key')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Reset User Password')
+                    ->modalDescription('This will generate a new temporary password for the user.')
+                    ->form([
+                        Forms\Components\TextInput::make('new_password')
+                            ->label('New Password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->minLength(8)
+                            ->default(fn () => \Str::random(12)),
+
+                        Forms\Components\Toggle::make('send_sms')
+                            ->label('Send password via SMS')
+                            ->default(true)
+                            ->visible(fn ($record) => !empty($record->phone)),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update(['password' => Hash::make($data['new_password'])]);
+
+                        self::logActivity('Password Reset', $record,
+                            'Reset password for user: ' . $record->name
+                        );
+
+                        if ($data['send_sms'] && $record->phone) {
+                            $smsService = new SmsService();
+                            $message = "CDF SYSTEM: Your password has been reset. New password: {$data['new_password']}. Please change it after logging in.";
+                            $smsService->sendSms($record->phone, $message);
+                        }
+
+                        Notification::make()
+                            ->title('Password Reset')
+                            ->body('Password has been reset for ' . $record->name)
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn ($record) =>
+                        checkUserUpdatePermission() &&
+                        ($record->role?->name !== 'Super Admin' || Auth::user()?->role?->name === 'Super Admin')
+                    ),
+
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) =>
+                        checkUserDeletePermission() &&
+                        $record->id !== Auth::id() &&
+                        $record->role?->name !== 'Super Admin'
+                    )
+                    ->before(function ($record) {
+                        self::logActivity('Delete', $record, 'Deleted user account: ' . $record->name);
+                    }),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('activate_users')
+                        ->label('Activate Selected')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->action(function ($records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if (!$record->is_active && checkUserUpdatePermission()) {
+                                    $record->update(['is_active' => true]);
+                                    self::logActivity('Bulk Activate', $record, 'Bulk activated user: ' . $record->name);
+                                    $count++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Users Activated')
+                                ->body("Activated {$count} user accounts")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    Tables\Actions\BulkAction::make('deactivate_users')
+                        ->label('Deactivate Selected')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->action(function ($records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if ($record->is_active && $record->id !== Auth::id() && checkUserUpdatePermission()) {
+                                    $record->update(['is_active' => false]);
+                                    self::logActivity('Bulk Deactivate', $record, 'Bulk deactivated user: ' . $record->name);
+                                    $count++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Users Deactivated')
+                                ->body("Deactivated {$count} user accounts")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    Tables\Actions\BulkAction::make('send_bulk_sms')
+                        ->label('Send SMS to Selected')
+                        ->icon('heroicon-o-envelope')
+                        ->color('info')
+                        ->form([
+                            Forms\Components\Textarea::make('message')
+                                ->label('SMS Message')
+                                ->required()
+                                ->maxLength(160)
+                                ->helperText('Maximum 160 characters for SMS')
+                                ->rows(3),
+                        ])
+                        ->action(function ($records, array $data) {
+                            $smsService = new SmsService();
+                            $sentCount = 0;
+
+                            foreach ($records as $record) {
+                                if ($record->phone && checkUserUpdatePermission()) {
+                                    $message = "CDF SYSTEM: " . $data['message'];
+                                    $result = $smsService->sendSms($record->phone, $message);
+
+                                    if ($result['success']) {
+                                        $sentCount++;
+                                    }
+
+                                    self::logActivity('Bulk SMS', $record,
+                                        'Sent bulk SMS to user: ' . $record->name
+                                    );
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('SMS Sent')
+                                ->body("Sent SMS to {$sentCount} users")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => checkUserDeletePermission())
+                        ->before(function ($records) {
+                            foreach ($records as $record) {
+                                if ($record->id !== Auth::id() && $record->role?->name !== 'Super Admin') {
+                                    self::logActivity('Bulk Delete', $record, 'Bulk deleted user: ' . $record->name);
+                                }
+                            }
+                        }),
+                ]),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->striped()
+            ->paginated([10, 25, 50, 100]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = Auth::user();
+        $query = parent::getEloquentQuery();
+
+        if ($user && $user->role) {
+            switch ($user->role->name) {
+                case 'Ward Development Committee':
+                case 'Constituency Officer':
+                    // Only see users in their ward
+                    if ($user->ward_id) {
+                        $query->where('ward_id', $user->ward_id);
+                    }
+                    break;
+
+                case 'CDFC Member':
+                case 'Admin':
+                    // Can see all users except Super Admin (unless they are Super Admin)
+                    if ($user->role->name !== 'Super Admin') {
+                        $query->whereDoesntHave('role', function ($q) {
+                            $q->where('name', 'Super Admin');
+                        });
+                    }
+                    break;
+
+                case 'Super Admin':
+                    // Can see all users
+                    break;
+
+                case 'Applicant':
+                    // Only see themselves
+                    $query->where('id', $user->id);
+                    break;
+            }
+        }
+
+        return $query;
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListUsers::route('/'),
+            'create' => Pages\CreateUser::route('/create'),
+            'view' => Pages\ViewUser::route('/{record}'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
+        ];
+    }
+
+    // Audit Trail Logging Method
+    private static function logActivity(string $action, $record, string $description, array $oldValues = [], array $newValues = []): void
+    {
+        try {
+            AuditTrail::create([
+                'user_id' => Auth::id(),
+                'action' => $action,
+                'table_name' => 'users',
+                'record_id' => $record?->id,
+                'old_values' => !empty($oldValues) ? json_encode($oldValues) : null,
+                'new_values' => !empty($newValues) ? json_encode($newValues) : null,
+                'description' => $description,
+                'ip_address' => Request::ip(),
+                'user_agent' => Request::userAgent(),
+            ]);
+        } catch (\Exception $e) {
+            // Log error but don't break the application
+            \Log::error('Failed to log audit trail: ' . $e->getMessage());
+        }
     }
 }

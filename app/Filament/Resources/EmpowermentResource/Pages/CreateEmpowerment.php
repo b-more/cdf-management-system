@@ -3,12 +3,19 @@
 namespace App\Filament\Resources\EmpowermentResource\Pages;
 
 use App\Filament\Resources\EmpowermentResource;
+use App\Models\AuditTrail;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Request;
 
 class CreateEmpowerment extends CreateRecord
 {
     protected static string $resource = EmpowermentResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
@@ -20,8 +27,28 @@ class CreateEmpowerment extends CreateRecord
         return $data;
     }
 
-    protected function handleRecordCreation(array $data): Model
+    protected function afterCreate(): void
     {
-        return EmpowermentResource::handleRecordCreation($data);
+        $this->logAuditTrail('Create', 'Created empowerment program: ' . $this->record->title, null, $this->record->toArray());
+    }
+
+    private function logAuditTrail(string $action, string $description, ?array $oldValues = null, ?array $newValues = null): void
+    {
+        try {
+            AuditTrail::create([
+                'user_id' => Auth::id(),
+                'action' => $action,
+                'table_name' => 'empowerments',
+                'record_id' => $this->record->id,
+                'old_values' => $oldValues ? json_encode($oldValues) : null,
+                'new_values' => $newValues ? json_encode($newValues) : null,
+                'description' => $description,
+                'ip_address' => Request::ip(),
+                'user_agent' => Request::userAgent(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to log audit trail: ' . $e->getMessage());
+        }
     }
 }
+
