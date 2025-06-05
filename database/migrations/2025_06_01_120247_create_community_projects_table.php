@@ -14,6 +14,11 @@ return new class extends Migration
         Schema::create('community_projects', function (Blueprint $table) {
             $table->id();
             $table->string('project_code', 50)->nullable();
+             $table->string('applicant_name')->nullable();
+            $table->string('applicant_phone')->nullable();
+            $table->string('applicant_email')->nullable();
+            $table->string('applicant_id_number')->nullable();
+            $table->text('applicant_address')->nullable();
             $table->string('title', 255)->nullable();
             $table->text('description')->nullable();
             $table->string('category', 100)->nullable();

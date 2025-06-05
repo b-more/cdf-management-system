@@ -22,12 +22,18 @@ class CommunityProjectResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
     protected static ?string $navigationGroup = 'Project Management';
     protected static ?string $recordTitleAttribute = 'title';
+    //protected static ?string $navigationGroup = 'Applications';
     protected static ?int $navigationSort = 1;
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::count();
+        return static::getModel()::where('status', 'Submitted')->count();
     }
+
+    // public static function getNavigationBadge(): ?string
+    // {
+    //     return static::getModel()::count();
+    // }
 
     public static function shouldRegisterNavigation(): bool
     {

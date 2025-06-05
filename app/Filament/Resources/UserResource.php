@@ -762,6 +762,7 @@ class UserResource extends Resource
             'create' => Pages\CreateUser::route('/create'),
             'view' => Pages\ViewUser::route('/{record}'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
+            //'public-applications' => Pages\ListPublicApplications::route('/public-applications'),
         ];
     }
 

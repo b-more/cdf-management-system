@@ -1,0 +1,399 @@
+{{-- resources/views/public/projects/education.blade.php --}}
+@extends('layouts.app')
+
+@section('title', 'Education Projects - CDF Portal Zambia')
+@section('description', 'Explore completed education development projects funded by CDF. Building schools, libraries, and educational facilities to improve learning opportunities across Zambia.')
+
+@section('content')
+<!-- Professional Hero Section -->
+<section class="relative py-20 gradient-hero overflow-hidden">
+    <div class="absolute inset-0 opacity-10">
+        <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent"></div>
+    </div>
+
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-2xl mb-6" data-aos="fade-up">
+                <i class="fas fa-graduation-cap text-purple-600 text-2xl"></i>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-bold text-white mb-6" data-aos="fade-up" data-aos-delay="100">
+                Education
+                <span class="bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">
+                    Projects
+                </span>
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-200 max-w-3xl mx-auto mb-8" data-aos="fade-up" data-aos-delay="200">
+                Building the foundation for Zambia's future by creating quality learning environments and educational opportunities for all.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center" data-aos="fade-up" data-aos-delay="300">
+                <a href="{{ route('apply') }}" class="btn-zambian-primary text-white px-8 py-4 rounded-xl font-semibold text-lg transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center">
+                    <i class="fas fa-file-alt mr-3"></i>Apply for Education Funding
+                </a>
+                <a href="{{ route('gallery') }}" class="btn-zambian-secondary text-white px-8 py-4 rounded-xl font-semibold text-lg transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center">
+                    <i class="fas fa-images mr-3"></i>View All Projects
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Education Impact Statistics -->
+<section class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+            <div class="text-center card-zambian rounded-2xl p-8" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-school text-purple-600 text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-zambian-black mb-2">200+</h3>
+                <p class="text-gray-600 font-medium">Schools Built/Renovated</p>
+            </div>
+
+            <div class="text-center card-zambian rounded-2xl p-8" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-user-graduate text-orange-600 text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-zambian-black mb-2">75,000+</h3>
+                <p class="text-gray-600 font-medium">Students Benefited</p>
+            </div>
+
+            <div class="text-center card-zambian rounded-2xl p-8" data-aos="fade-up" data-aos-delay="300">
+                <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-chalkboard-teacher text-purple-600 text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-zambian-black mb-2">2,500+</h3>
+                <p class="text-gray-600 font-medium">Teachers Supported</p>
+            </div>
+
+            <div class="text-center card-zambian rounded-2xl p-8" data-aos="fade-up" data-aos-delay="400">
+                <div class="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-book text-orange-600 text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-zambian-black mb-2">50+</h3>
+                <p class="text-gray-600 font-medium">Libraries Established</p>
+            </div>
+        </div>
+
+        <!-- Education Focus Areas -->
+        <div class="bg-gradient-to-r from-purple-50 to-orange-50 rounded-3xl p-8 mb-16" data-aos="fade-up" data-aos-delay="500">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-zambian-black mb-4">
+                    Our Education
+                    <span class="bg-gradient-to-r from-purple-600 to-orange-500 bg-clip-text text-transparent">
+                        Focus Areas
+                    </span>
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Comprehensive educational development initiatives designed to improve learning outcomes and access to quality education.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-white rounded-2xl p-6 border border-purple-200">
+                    <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-school text-purple-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zambian-black mb-3">School Infrastructure</h3>
+                    <p class="text-gray-700 text-sm">Construction and renovation of classrooms, administration blocks, and school facilities.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-orange-200">
+                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-book text-orange-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zambian-black mb-3">Libraries & Resources</h3>
+                    <p class="text-gray-700 text-sm">Community libraries, reading materials, and educational resources for enhanced learning.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-purple-200">
+                    <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-laptop text-purple-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zambian-black mb-3">ICT Centers</h3>
+                    <p class="text-gray-700 text-sm">Computer labs and technology centers to bridge the digital divide in education.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-orange-200">
+                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-chalkboard-teacher text-orange-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zambian-black mb-3">Teacher Training</h3>
+                    <p class="text-gray-700 text-sm">Professional development programs and training for educators to improve teaching quality.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-purple-200">
+                    <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-tools text-purple-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zambian-black mb-3">Technical Education</h3>
+                    <p class="text-gray-700 text-sm">Vocational training centers and technical skills development programs.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-orange-200">
+                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-users text-orange-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zambian-black mb-3">Adult Education</h3>
+                    <p class="text-gray-700 text-sm">Literacy programs and continuing education opportunities for adult learners.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Education Projects -->
+<section class="py-20 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <h2 class="text-4xl font-bold text-zambian-black mb-6">
+                Featured Education
+                <span class="bg-gradient-to-r from-purple-600 to-orange-500 bg-clip-text text-transparent">
+                    Success Stories
+                </span>
+            </h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                Discover how CDF education projects are transforming learning opportunities and building brighter futures for Zambian communities.
+            </p>
+        </div>
+
+        <!-- Projects Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            @forelse($projects as $project)
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2" data-aos="fade-up" data-aos-delay="{{ $loop->index * 100 }}">
+                <!-- Project Image -->
+                <div class="relative h-48 bg-gradient-to-br from-purple-100 to-orange-100">
+                    @if($project->image)
+                        <img src="{{ asset('storage/' . $project->image) }}" alt="{{ $project->project_title }}" class="w-full h-full object-cover">
+                    @else
+                        <div class="w-full h-full flex items-center justify-center">
+                            <i class="fas fa-graduation-cap text-purple-500 text-4xl"></i>
+                        </div>
+                    @endif
+                    <div class="absolute top-4 left-4">
+                        <span class="bg-purple-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                            Education
+                        </span>
+                    </div>
+                    <div class="absolute top-4 right-4">
+                        <span class="bg-white/90 text-purple-600 px-3 py-1 rounded-full text-xs font-semibold">
+                            {{ $project->status }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Project Content -->
+                <div class="p-6">
+                    <div class="flex items-center text-sm text-gray-500 mb-3">
+                        <i class="fas fa-map-marker-alt mr-2"></i>
+                        <span>{{ $project->ward->name ?? 'N/A' }}</span>
+                        <span class="mx-2">•</span>
+                        <span>{{ $project->created_at->format('M Y') }}</span>
+                    </div>
+
+                    <h3 class="text-xl font-bold text-zambian-black mb-3 line-clamp-2">
+                        {{ $project->project_title }}
+                    </h3>
+
+                    <p class="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {{ $project->project_description }}
+                    </p>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center text-orange-600">
+                            <i class="fas fa-users mr-2"></i>
+                            <span class="text-sm font-semibold">
+                                {{ number_format($project->beneficiaries_count ?? 0) }} Beneficiaries
+                            </span>
+                        </div>
+                        <div class="text-purple-600 font-bold">
+                            K{{ number_format($project->approved_amount ?? 0) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @empty
+            <div class="col-span-full text-center py-12">
+                <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-graduation-cap text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">No Education Projects Yet</h3>
+                <p class="text-gray-500">Education projects will be displayed here once they are completed.</p>
+            </div>
+            @endforelse
+        </div>
+
+        <!-- Pagination -->
+        @if($projects->hasPages())
+        <div class="flex justify-center" data-aos="fade-up">
+            {{ $projects->links() }}
+        </div>
+        @endif
+    </div>
+</section>
+
+<!-- Education Impact Story -->
+<section class="py-20 bg-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="bg-gradient-to-r from-purple-50 to-orange-50 rounded-3xl p-8 md:p-12" data-aos="fade-up">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-3xl md:text-4xl font-bold text-zambian-black mb-6">
+                        Transforming Lives Through
+                        <span class="bg-gradient-to-r from-purple-600 to-orange-500 bg-clip-text text-transparent">
+                            Quality Education
+                        </span>
+                    </h2>
+                    <p class="text-lg text-gray-700 mb-6">
+                        Our education projects have significantly improved literacy rates, school enrollment, and educational outcomes across Zambian communities. By building modern facilities and providing essential resources, we're creating environments where students can thrive.
+                    </p>
+                    <div class="grid grid-cols-2 gap-6 mb-8">
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-purple-600 mb-1">95%</h3>
+                            <p class="text-gray-600 text-sm">Enrollment Increase</p>
+                        </div>
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-orange-600 mb-1">40%</h3>
+                            <p class="text-gray-600 text-sm">Improved Pass Rates</p>
+                        </div>
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-purple-600 mb-1">85%</h3>
+                            <p class="text-gray-600 text-sm">Literacy Improvement</p>
+                        </div>
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-orange-600 mb-1">200+</h3>
+                            <p class="text-gray-600 text-sm">Communities Served</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+                        <div class="flex items-center mb-6">
+                            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-quote-left text-purple-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-zambian-black">Success Story</h4>
+                                <p class="text-gray-500 text-sm">Munali Primary School</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-700 italic mb-6">
+                            "The new classrooms and library have completely transformed our school. Student enrollment has increased by 150%, and our pass rates have improved dramatically. The children now have access to modern learning resources they never had before."
+                        </p>
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-orange-500 rounded-full flex items-center justify-center mr-3">
+                                <span class="text-white font-semibold text-sm">MK</span>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-zambian-black">Mrs. Mary Kumwenda</p>
+                                <p class="text-gray-500 text-sm">Head Teacher</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Apply for Education Funding -->
+<section class="py-20 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="bg-gradient-to-r from-purple-500 to-orange-500 rounded-3xl p-12 text-white" data-aos="fade-up">
+            <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-graduation-cap text-white text-2xl"></i>
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-6">
+                Ready to Improve Education in Your Community?
+            </h2>
+            <p class="text-xl text-purple-50 mb-8 max-w-2xl mx-auto">
+                Apply for CDF education funding and help build better learning environments, enhance educational resources, and create opportunities for students to succeed.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="{{ route('apply') }}" class="btn-zambian-secondary text-white px-8 py-4 rounded-xl font-semibold text-lg transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center">
+                    <i class="fas fa-file-alt mr-3"></i>Start Your Application
+                </a>
+                <a href="{{ route('contact') }}" class="bg-white/20 text-white px-8 py-4 rounded-xl font-semibold text-lg transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center hover:bg-white/30">
+                    <i class="fas fa-phone mr-3"></i>Get Consultation
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Related Project Categories -->
+<section class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <h2 class="text-3xl font-bold text-zambian-black mb-4">
+                Explore Other
+                <span class="bg-gradient-to-r from-purple-600 to-orange-500 bg-clip-text text-transparent">
+                    Project Categories
+                </span>
+            </h2>
+            <p class="text-lg text-gray-600">
+                Discover more ways CDF is supporting community development across various sectors.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <a href="{{ route('projects.infrastructure') }}" class="group bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
+                    <i class="fas fa-road text-blue-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-zambian-black mb-2 group-hover:text-blue-600 transition-colors">Infrastructure</h3>
+                <p class="text-gray-600 text-sm">Roads, bridges, and community buildings</p>
+            </a>
+
+            <a href="{{ route('projects.health') }}" class="group bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-200 transition-colors">
+                    <i class="fas fa-heartbeat text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-zambian-black mb-2 group-hover:text-red-600 transition-colors">Healthcare</h3>
+                <p class="text-gray-600 text-sm">Clinics, health centers, and medical facilities</p>
+            </a>
+
+            <a href="{{ route('projects.water') }}" class="group bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" data-aos="fade-up" data-aos-delay="300">
+                <div class="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-cyan-200 transition-colors">
+                    <i class="fas fa-tint text-cyan-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-zambian-black mb-2 group-hover:text-cyan-600 transition-colors">Water & Sanitation</h3>
+                <p class="text-gray-600 text-sm">Water wells and sanitation facilities</p>
+            </a>
+
+            <a href="{{ route('projects.agriculture') }}" class="group bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" data-aos="fade-up" data-aos-delay="400">
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-200 transition-colors">
+                    <i class="fas fa-seedling text-green-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-zambian-black mb-2 group-hover:text-green-600 transition-colors">Agriculture</h3>
+                <p class="text-gray-600 text-sm">Farming support and agricultural development</p>
+            </a>
+
+            <a href="{{ route('projects.youth') }}" class="group bg-white rounded-2xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1" data-aos="fade-up" data-aos-delay="500">
+                <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-yellow-200 transition-colors">
+                    <i class="fas fa-users text-yellow-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-zambian-black mb-2 group-hover:text-yellow-600 transition-colors">Youth Development</h3>
+                <p class="text-gray-600 text-sm">Youth programs and empowerment initiatives</p>
+            </a>
+        </div>
+    </div>
+</section>
+
+@push('styles')
+<style>
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+@endpush
+@endsection
